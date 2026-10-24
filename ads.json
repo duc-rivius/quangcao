@@ -1,15 +1,18 @@
 {
-    "base_url":  "https://duc-rivius.github.io/quangcao",
-    "refresh_hours":  3,
-    "ads":  [
-                {
-                    "id":  "rivius-nem",
-                    "image":  "https://duc-rivius.github.io/quangcao/rivius-nem.jpg",
-                    "title":  "RIVIUS – Nệm hybrid lò xo túi độc lập, ngủ thử 100 đêm",
-                    "body":  "Tận hưởng cảm giác thư giãn chuẩn nghỉ dưỡng mỗi đêm cùng nệm RIVIUS – nệm hybrid lò xo túi độc lập, nâng đỡ cơ thể và hạn chế lan truyền chuyển động khi nằm chung. Ngủ thử 100 đêm tại nhà, miễn phí giao hàng toàn quốc.",
-                    "advertiser":  "RIVIUS",
-                    "click":  "https://rivius.com/nem?utm_source=sieunetplayer",
-                    "weight":  1
-                }
-            ]
+  "base_url": "https://duc-rivius.github.io/quangcao",
+  "refresh_hours": 3,
+  "ads": [
+    {
+      "id": "rivius-nem",
+      "image": "https://duc-rivius.github.io/quangcao/lulia.jpg",
+      "title": "RIVIUS – Nệm hybrid lò xo túi độc lập, ngủ thử 100 đêm",
+      "body": "Tận hưởng cảm giác thư giãn chuẩn nghỉ dưỡng mỗi đêm cùng nệm RIVIUS – nệm hybrid lò xo túi độc lập, nâng đỡ cơ thể và hạn chế lan truyền chuyển động khi nằm chung. Ngủ thử 100 đêm tại nhà, miễn phí giao hàng toàn quốc.",
+      "advertiser": "RIVIUS",
+      "click": "https://rivius.com/nem?utm_source=sieunetplayer",
+      "weight": 1
+    }
+  ],
+  "manifest_url": "",
+  "adbutler": "",
+  "kevel": ""
 }
