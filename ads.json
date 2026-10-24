@@ -1,6 +1,6 @@
 {
   "base_url": "https://duc-rivius.github.io/quangcao",
-  "refresh_hours": 3,
+  "refresh_hours": 0.0167,
   "ads": [
     {
       "id": "rivius-nem",
