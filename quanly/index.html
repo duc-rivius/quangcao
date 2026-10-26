@@ -107,12 +107,15 @@ dialog a{color:var(--acc)}
 .steps{padding-left:20px;margin:12px 0;color:var(--mut);font-size:13px}.steps li{margin:4px 0}.steps b{color:var(--ink)}
 .chk{display:flex;align-items:center;gap:8px;font-weight:400}.chk input{width:auto}
 .lerr{color:var(--bad);font-size:13px;min-height:1.2em;margin:8px 0}
+.newpw{border:1px dashed var(--line);border-radius:10px;padding:4px 12px 10px;margin:12px 0 0}.newpw legend{font-size:13px;font-weight:600;padding:0 4px}
+.actions.end{justify-content:flex-end}
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><div class="logo">QC</div><div><h1>Quản lý quảng cáo</h1><small>Siêu Nét Player</small></div></div>
   <span class="dirty" id="dirtyTag" hidden>Chưa lưu</span>
+  <button id="setpw" class="ghost" hidden>Mật khẩu</button>
   <button id="logout" class="ghost" hidden>Đăng xuất</button>
   <button id="open" class="ghost">Mở thư mục…</button>
   <button id="export" class="ghost" disabled>Tải ads.json</button>
@@ -184,6 +187,24 @@ dialog a{color:var(--acc)}
 </main>
 <div id="toast"></div>
 <dialog id="login">
+  <form id="pwForm" hidden>
+    <h3>Đăng nhập</h3>
+    <p class="sub">Quản lý quảng cáo của repo <b id="pwRepo"></b>.</p>
+    <label>Tên đăng nhập</label><input id="pwUser" autocomplete="username">
+    <label>Mật khẩu</label><input id="pwPass" type="password" autocomplete="current-password">
+    <label class="chk"><input type="checkbox" id="pwRemember"> Nhớ trên máy này</label>
+    <p class="lerr" id="pwErr"></p>
+    <div class="actions end"><button type="button" class="ghost" id="toToken">Dùng token GitHub</button><button type="submit" class="primary" id="pwBtn">Đăng nhập</button></div>
+  </form>
+  <form id="setForm" hidden>
+    <h3>Đổi tên đăng nhập / mật khẩu</h3>
+    <p class="sub">Áp dụng cho mọi máy. Mật khẩu cũ hết tác dụng ngay khi lưu xong.</p>
+    <label>Tên đăng nhập</label><input id="setUser" autocomplete="username">
+    <label>Mật khẩu mới <span>(ít nhất 10 ký tự)</span></label><input id="setPass" type="password" autocomplete="new-password">
+    <label>Nhập lại mật khẩu</label><input id="setPass2" type="password" autocomplete="new-password">
+    <p class="lerr" id="setErr"></p>
+    <div class="actions end"><button type="button" class="ghost" id="setCancel">Huỷ</button><button type="submit" class="primary" id="setBtn">Lưu</button></div>
+  </form>
   <form id="loginForm">
     <h3>Kết nối GitHub</h3>
     <p class="sub">Trang này sửa thẳng repo <b id="repoName"></b>. Cần một token GitHub có quyền ghi vào repo này. Token chỉ nằm trong trình duyệt của anh.</p>
@@ -193,9 +214,16 @@ dialog a{color:var(--acc)}
       <li>Permissions, mục Repository: <b>Contents: Read and write</b>. Bấm Generate rồi chép token.</li>
     </ol>
     <label>Token</label><input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…">
+    <fieldset class="newpw">
+      <legend>Đặt tên đăng nhập và mật khẩu (tuỳ chọn)</legend>
+      <p class="sub">Lần sau chỉ cần gõ tên và mật khẩu, khỏi dán token. Điền lại ở đây khi đổi token mới.</p>
+      <label>Tên đăng nhập</label><input id="newUser" autocomplete="username">
+      <label>Mật khẩu <span>(ít nhất 10 ký tự)</span></label><input id="newPass" type="password" autocomplete="new-password">
+      <label>Nhập lại mật khẩu</label><input id="newPass2" type="password" autocomplete="new-password">
+    </fieldset>
     <label class="chk"><input type="checkbox" id="remember"> Nhớ trên máy này</label>
     <p class="lerr" id="loginErr"></p>
-    <div class="actions"><button type="submit" class="primary" id="loginBtn">Kết nối</button></div>
+    <div class="actions end"><button type="button" class="ghost" id="toPw" hidden>Quay lại đăng nhập</button><button type="submit" class="primary" id="loginBtn">Kết nối</button></div>
   </form>
 </dialog>
 <script>
@@ -475,28 +503,112 @@ async function loadGH(){
   $('add').disabled = false; setDirty(false);
   sel = data.ads.length ? 0 : -1; renderAll();
 }
-function showLogin(err){
-  $('loginErr').textContent = err || '';
-  if(!$('login').open) $('login').showModal();
-  $('tokenIn').focus();
+// ---- Đăng nhập bằng tên + mật khẩu: token GitHub được mã hoá (AES-GCM, khoá suy ra từ tên + mật khẩu
+// bằng PBKDF2) rồi lưu ở quanly/auth.json. File đó công khai nhưng không có mật khẩu thì không giải được.
+const AUTH_FILE = 'quanly/auth.json', PBKDF2_ITER = 600000;
+let auth = null;   // nội dung auth.json, null nếu chưa đặt mật khẩu
+const utf8 = new TextEncoder();
+const toB64 = u => { let s = ''; u.forEach(c => s += String.fromCharCode(c)); return btoa(s); };
+const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function pwKey(user, pass, salt, iter){
+  const base = await crypto.subtle.importKey('raw', utf8.encode(user.trim().toLowerCase()+'\n'+pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt, iterations:iter}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
 }
+async function sealToken(tok, user, pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, await pwKey(user, pass, salt, PBKDF2_ITER), utf8.encode(tok)));
+  return {v:1, kdf:'PBKDF2-SHA256', iter:PBKDF2_ITER, salt:toB64(salt), iv:toB64(iv), ct:toB64(ct)};
+}
+async function openToken(a, user, pass){
+  try{
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:fromB64(a.iv)}, await pwKey(user, pass, fromB64(a.salt), a.iter), fromB64(a.ct));
+    return new TextDecoder().decode(pt);
+  }catch(e){ throw new Error('Sai tên đăng nhập hoặc mật khẩu.'); }
+}
+async function loadAuth(){
+  try{ const r = await fetch('auth.json?'+Date.now(), {cache:'no-store'}); auth = r.ok ? await r.json() : null; }catch(e){ auth = null; }
+  if(!(auth && auth.v === 1 && auth.ct && auth.iv && auth.salt && auth.iter)) auth = null;
+}
+async function saveAuth(user, pass){
+  const a = await sealToken(gh.token, user, pass);
+  let sha; try{ sha = (await ghFetch('/contents/'+AUTH_FILE+'?ref='+gh.branch)).sha; }catch(e){ if(e.status !== 404) throw e; }
+  await ghFetch('/contents/'+AUTH_FILE, {method:'PUT', body:JSON.stringify({message:'Cap nhat dang nhap trang quan ly', branch:gh.branch,
+    content:btoa(JSON.stringify(a, null, 2)+'\n'), ...(sha ? {sha} : {})})});
+  auth = a;
+}
+function checkNewPw(user, pass, pass2){   // '' = hợp lệ (hoặc bỏ trống cả hai)
+  if(!user && !pass) return '';
+  if(!user) return 'Nhập tên đăng nhập.';
+  if(pass.length < 10) return 'Mật khẩu cần ít nhất 10 ký tự.';
+  if(pass !== pass2) return 'Hai lần nhập mật khẩu không khớp.';
+  return '';
+}
+function showForm(id){
+  for(const f of ['pwForm','setForm','loginForm']) $(f).hidden = f !== id;
+  if(!$('login').open) $('login').showModal();
+}
+function showLogin(err, mode){
+  const pw = mode ? mode === 'pw' : !!auth;
+  showForm(pw ? 'pwForm' : 'loginForm');
+  $('toPw').hidden = !auth;
+  $(pw ? 'pwErr' : 'loginErr').textContent = err || '';
+  $(pw ? 'pwUser' : 'tokenIn').focus();
+}
+$('toToken').onclick = () => showLogin('', 'token');
+$('toPw').onclick = () => showLogin('', 'pw');
+$('pwForm').onsubmit = async e => {
+  e.preventDefault();
+  const u = $('pwUser').value, p = $('pwPass').value; if(!u.trim() || !p) return;
+  $('pwBtn').disabled = true; $('pwErr').textContent = 'Đang kiểm tra…';
+  try{
+    const tok = await openToken(auth, u, p);
+    await connectGH(tok, $('pwRemember').checked);
+    $('pwPass').value = ''; $('login').close(); toast('Đã đăng nhập.', 'ok');
+  }catch(err){
+    $('pwErr').textContent = err.status === 401
+      ? 'Mật khẩu đúng nhưng token GitHub đã hết hạn hoặc bị xoá. Bấm "Dùng token GitHub", dán token mới và đặt lại mật khẩu.'
+      : err.message;
+  }finally{ $('pwBtn').disabled = false; }
+};
+$('setpw').onclick = () => { $('setErr').textContent = ''; $('setPass').value = $('setPass2').value = ''; showForm('setForm'); $('setUser').focus(); };
+$('setCancel').onclick = () => $('login').close();
+$('setForm').onsubmit = async e => {
+  e.preventDefault();
+  const u = $('setUser').value.trim(), p = $('setPass').value;
+  const bad = u || p ? checkNewPw(u, p, $('setPass2').value) : 'Nhập tên đăng nhập.';
+  if(bad){ $('setErr').textContent = bad; return; }
+  $('setBtn').disabled = true; $('setErr').textContent = 'Đang lưu…';
+  try{ await saveAuth(u, p); $('login').close(); toast('Đã lưu mật khẩu mới. Khoảng 1 phút sau dùng được trên mọi máy.', 'ok', 7000); }
+  catch(err){ $('setErr').textContent = err.message; }
+  finally{ $('setBtn').disabled = false; }
+};
 async function connectGH(tok, remember){
   gh.token = tok;
   const info = await ghFetch('');
   gh.branch = info.default_branch || 'main';
   if(remember != null){ (remember ? localStorage : sessionStorage).setItem(TOKEN_KEY, tok); }
   await loadGH();
-  $('publish').hidden = false; $('logout').hidden = false;
+  $('publish').hidden = false; $('logout').hidden = false; $('setpw').hidden = false;
 }
 $('loginForm').onsubmit = async e => {
   e.preventDefault();
   const tok = $('tokenIn').value.trim(); if(!tok) return;
+  const nu = $('newUser').value.trim(), np = $('newPass').value;
+  const bad = checkNewPw(nu, np, $('newPass2').value);
+  if(bad){ $('loginErr').textContent = bad; return; }
   $('loginBtn').disabled = true; $('loginErr').textContent = 'Đang kiểm tra…';
-  try{ await connectGH(tok, $('remember').checked); $('tokenIn').value = ''; $('login').close(); toast('Đã kết nối GitHub.', 'ok'); }
-  catch(err){ $('loginErr').textContent = err.message; }
-  finally{ $('loginBtn').disabled = false; }
+  try{ await connectGH(tok, $('remember').checked); }
+  catch(err){ $('loginErr').textContent = err.message; $('loginBtn').disabled = false; return; }
+  $('tokenIn').value = '';
+  if(nu){
+    $('loginErr').textContent = 'Đang lưu mật khẩu…';
+    try{ await saveAuth(nu, np); toast('Đã kết nối và đặt mật khẩu. Khoảng 1 phút nữa là đăng nhập bằng tên và mật khẩu được.', 'ok', 7000); }
+    catch(err){ toast('Đã kết nối, nhưng chưa lưu được mật khẩu.<pre>'+esc(err.message)+'</pre>', 'err', 8000); }
+    $('newPass').value = $('newPass2').value = '';
+  } else toast('Đã kết nối GitHub.', 'ok');
+  $('login').close(); $('loginBtn').disabled = false;
 };
-$('login').addEventListener('cancel', e => e.preventDefault());   // không đóng khi chưa kết nối
+$('login').addEventListener('cancel', e => { if($('setForm').hidden) e.preventDefault(); });   // không đóng khi chưa kết nối
 $('logout').onclick = () => {
   if(dirty && !confirm('Còn thay đổi chưa đăng. Vẫn đăng xuất?')) return;
   localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); dirty = false; location.reload();
@@ -539,8 +651,11 @@ if(GH){
   $('repoName').textContent = gh.owner+'/'+gh.repo; $('repoShort').textContent = gh.repo;
   setStatus('Đang chờ kết nối GitHub…');
   const tok = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
-  if(tok) connectGH(tok, null).catch(e => { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); showLogin(e.message); });
-  else showLogin();
+  $('pwRepo').textContent = gh.owner+'/'+gh.repo;
+  loadAuth().then(() => {
+    if(tok) connectGH(tok, null).catch(e => { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); showLogin(e.message); });
+    else showLogin();
+  });
 }
 window.addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
 renderList();
