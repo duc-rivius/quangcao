@@ -1,4 +1,4 @@
-﻿# Quản lý quảng cáo Siêu Nét — chạy như một ứng dụng (cửa sổ riêng, không có thanh trình duyệt).
+﻿# Quản lý quảng cáo Siêu Nét - chạy như một ứng dụng (cửa sổ riêng, không có thanh trình duyệt).
 # Đọc / ghi ads.json và ảnh trong repo quangcao, nút "Đăng lên web" = git commit + push.
 # Chỉ nghe trên 127.0.0.1, mỗi lần chạy có token riêng; đóng cửa sổ app là tự tắt.
 param(
@@ -6,7 +6,7 @@ param(
     [int]$Port = 8765
 )
 $ErrorActionPreference = 'Continue'
-$html = Join-Path $PSScriptRoot 'ads-manager.html'
+$html = Join-Path $PSScriptRoot 'index.html'
 $token = [guid]::NewGuid().ToString('N')
 $MaxImage = 6MB
 $Types = @{ '.jpg' = 'image/jpeg'; '.jpeg' = 'image/jpeg'; '.png' = 'image/png'; '.webp' = 'image/webp'; '.gif' = 'image/gif' }
@@ -16,6 +16,9 @@ if (-not (Test-Path (Join-Path $Repo '.git'))) {
     [void][Windows.MessageBox]::Show("Không thấy repo quảng cáo tại $Repo`nChạy lại với: -Repo <thư mục repo quangcao>", 'Quản lý quảng cáo')
     exit 1
 }
+
+# kéo bản mới nhất về trước (có thể đã sửa từ bản web trên GitHub Pages)
+$null = & git -C $Repo pull --ff-only -q 2>&1
 
 $l = New-Object Net.HttpListener
 $l.Prefixes.Add("http://127.0.0.1:$Port/")
@@ -117,6 +120,8 @@ while ($l.IsListening) {
             } else {
                 $c = Git-Out @('commit', '-q', '-m', ('Cap nhat quang cao ' + (Get-Date -Format 'yyyy-MM-dd HH:mm')))
                 $log += $c.text
+                $r = Git-Out @('pull', '--rebase', '-q')       # gộp thay đổi đăng từ bản web
+                if ($r.code -ne 0) { $null = Git-Out @('rebase', '--abort'); $log += $r.text }
                 $p = Git-Out @('push')
                 $log += $p.text
                 $res = @{ ok = ($c.code -eq 0 -and $p.code -eq 0); output = (($log | Where-Object { $_ }) -join "`n") }

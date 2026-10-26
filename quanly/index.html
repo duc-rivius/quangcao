@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quản lý quảng cáo — Siêu Nét Player</title>
+<title>Quản lý quảng cáo - Siêu Nét Player</title>
 <style>
 :root{
   --bg:#f3f1ed;--card:#fff;--ink:#1b1a17;--mut:#6f6a60;--line:#e4dfd6;--soft:#f8f6f2;
@@ -98,12 +98,22 @@ input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.err{background:var(--bad);color:#fff}#toast.ok{background:var(--ok);color:#fff}
 #toast pre{white-space:pre-wrap;margin:6px 0 0;font:12px/1.4 Consolas,monospace;max-height:160px;overflow:auto}
+
+/* đăng nhập GitHub (bản chạy trên web) */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:22px 24px;width:min(480px,92vw);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(3px)}
+dialog h3{margin:0 0 4px;font-size:17px}dialog .sub{color:var(--mut);font-size:13px;margin:0}
+dialog a{color:var(--acc)}
+.steps{padding-left:20px;margin:12px 0;color:var(--mut);font-size:13px}.steps li{margin:4px 0}.steps b{color:var(--ink)}
+.chk{display:flex;align-items:center;gap:8px;font-weight:400}.chk input{width:auto}
+.lerr{color:var(--bad);font-size:13px;min-height:1.2em;margin:8px 0}
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><div class="logo">QC</div><div><h1>Quản lý quảng cáo</h1><small>Siêu Nét Player</small></div></div>
   <span class="dirty" id="dirtyTag" hidden>Chưa lưu</span>
+  <button id="logout" class="ghost" hidden>Đăng xuất</button>
   <button id="open" class="ghost">Mở thư mục…</button>
   <button id="export" class="ghost" disabled>Tải ads.json</button>
   <button id="save" disabled>Lưu</button>
@@ -173,11 +183,30 @@ input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0
   </section>
 </main>
 <div id="toast"></div>
+<dialog id="login">
+  <form id="loginForm">
+    <h3>Kết nối GitHub</h3>
+    <p class="sub">Trang này sửa thẳng repo <b id="repoName"></b>. Cần một token GitHub có quyền ghi vào repo này. Token chỉ nằm trong trình duyệt của anh.</p>
+    <ol class="steps">
+      <li>Mở <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">trang tạo token</a> (loại Fine-grained).</li>
+      <li>Repository access: <b>Only select repositories</b>, chọn <b id="repoShort"></b>.</li>
+      <li>Permissions, mục Repository: <b>Contents: Read and write</b>. Bấm Generate rồi chép token.</li>
+    </ol>
+    <label>Token</label><input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…">
+    <label class="chk"><input type="checkbox" id="remember"> Nhớ trên máy này</label>
+    <p class="lerr" id="loginErr"></p>
+    <div class="actions"><button type="submit" class="primary" id="loginBtn">Kết nối</button></div>
+  </form>
+</dialog>
 <script>
 const $ = id => document.getElementById(id);
 const FIELDS = ['id','advertiser','image','title','body','cta','click','impression','impression2','start','end','weight','min_seconds'];
 const TOKEN = new URLSearchParams(location.search).get('t');
 const API = !!TOKEN && location.hostname === '127.0.0.1';   // chạy trong app (qua ads-server.ps1)
+const GH = !API && /\.github\.io$/i.test(location.hostname); // chạy trên GitHub Pages: sửa repo qua GitHub API
+const gh = GH ? {owner: location.hostname.split('.')[0], repo: location.pathname.split('/')[1] || '', branch: 'main', token: ''} : null;
+const pending = new Map();   // ảnh mới tải lên, chưa đăng (bản web)
+let adsSha = null;           // sha của ads.json lúc tải, để biết có ai sửa chen giữa
 let dir = null, data = {manifest_url:'',adbutler:'',kevel:'',ads:[]}, sel = -1, dirty = false;
 const imgUrls = new Map();
 
@@ -201,11 +230,11 @@ async function loadServer(){
   sel = data.ads.length ? 0 : -1; renderAll();
 }
 async function openDir(){
-  if(!window.showDirectoryPicker){ setStatus('Trình duyệt không hỗ trợ mở thư mục — dùng Chrome/Edge. Vẫn có thể soạn rồi bấm “Tải ads.json”.'); loadDefault(); return; }
+  if(!window.showDirectoryPicker){ setStatus('Trình duyệt không hỗ trợ mở thư mục - dùng Chrome/Edge. Vẫn có thể soạn rồi bấm “Tải ads.json”.'); loadDefault(); return; }
   try{ dir = await showDirectoryPicker({mode:'readwrite'}); }catch(e){ return; }
   let text = '';
   try{ text = await (await (await dir.getFileHandle('ads.json')).getFile()).text(); }catch(e){}
-  try{ data = text ? JSON.parse(text) : {}; }catch(e){ setStatus('<span style="color:var(--bad)">ads.json không phải JSON hợp lệ — mở bằng Notepad để sửa.</span>'); return; }
+  try{ data = text ? JSON.parse(text) : {}; }catch(e){ setStatus('<span style="color:var(--bad)">ads.json không phải JSON hợp lệ - mở bằng Notepad để sửa.</span>'); return; }
   loadDefault(true);
   setStatus('Đang sửa: <b>'+esc(dir.name)+'</b>');
   $('add').disabled = false; setDirty(false);
@@ -265,6 +294,7 @@ async function imageSrc(a){
   if(/^https?:/i.test(a.image)) return a.image;
   let src = imgUrls.get(a.image);
   if(!src && API) return '/img/'+encodeURIComponent(a.image)+'?t='+TOKEN;
+  if(!src && GH && !a.image.includes('..')) return 'https://raw.githubusercontent.com/'+gh.owner+'/'+gh.repo+'/'+gh.branch+'/'+a.image.split('/').map(encodeURIComponent).join('/');
   if(!src && dir && !a.image.includes('..')){
     try{
       let h = dir; const parts = a.image.split('/');
@@ -294,7 +324,7 @@ async function renderPreview(a){
     card.appendChild(mk('b',null,a.title || '(chưa có tiêu đề)'));
     if(a.body) card.appendChild(mk('span',null,a.body));
     if(a.cta) card.appendChild(mk('div','cta',a.cta));
-    if(a.image && !src) card.appendChild(mk('span',null,'(không tìm thấy ảnh — đang hiện dạng chữ)'));
+    if(a.image && !src) card.appendChild(mk('span',null,'(không tìm thấy ảnh - đang hiện dạng chữ)'));
     w.appendChild(card);
     const row = mk('div'); row.style.cssText = 'display:flex;justify-content:flex-end';
     const sk = mk('div','skip','Bỏ qua ▶'); sk.style.width = '14cqw'; row.appendChild(sk); w.appendChild(row);
@@ -336,7 +366,7 @@ for(const k of ['base_url','manifest_url','adbutler','kevel']) $(k).oninput = e 
 async function uploadFile(f){
   const a = data.ads[sel]; if(!f || !a) return;
   if(!/^image\/(png|jpeg)$/.test(f.type)){ toast('Chỉ nhận ảnh JPG hoặc PNG.', 'err'); return; }
-  if(f.size > 6*1024*1024){ toast('Ảnh quá 6 MB — player sẽ không tải.', 'err'); return; }
+  if(f.size > 6*1024*1024){ toast('Ảnh quá 6 MB - player sẽ không tải.', 'err'); return; }
   // tên mới mỗi lần tải lên: player giữ ảnh cũ 7 ngày theo địa chỉ, đổi tên thì mọi máy tải ảnh mới ngay
   const m = f.name.match(/^(.*?)(\.[A-Za-z]{3,4})$/) || [null, f.name, '.jpg'];
   const base = m[1].replace(/-v[0-9a-z]{6,}$/,'').replace(/[^\w\-]+/g,'_').slice(0,60) || 'anh';
@@ -344,6 +374,8 @@ async function uploadFile(f){
   if(API){
     const r = await fetch('/api/image?t='+TOKEN+'&name='+encodeURIComponent(name),{method:'PUT',body:f});
     if(!r.ok){ toast('Không lưu được ảnh.', 'err'); return; }
+  } else if(GH){
+    pending.set(name, f);
   } else if(dir){
     const w = await (await dir.getFileHandle(name,{create:true})).createWritable();
     await w.write(f); await w.close();
@@ -388,7 +420,7 @@ async function doSave(skipAsk){
     const w = await (await dir.getFileHandle('ads.json',{create:true})).createWritable();
     await w.write(serialize()); await w.close();
   }
-  setDirty(false); toast('Đã lưu ads.json — '+data.ads.length+' quảng cáo.', 'ok');
+  setDirty(false); toast('Đã lưu ads.json - '+data.ads.length+' quảng cáo.', 'ok');
   setStatus('Đã lưu. Bấm “Đăng lên web” để mọi máy nhận.');
   return true;
 }
@@ -401,6 +433,7 @@ $('open').onclick = openDir;
 // ---- Đăng lên web: chỉ hoạt động trong app (tools\ads-server.ps1) ----
 if(API){ $('publish').hidden = false; $('open').hidden = true; loadServer(); }
 $('publish').onclick = async () => {
+  if(GH) return publishGH();
   if(!(dir || API)){ setStatus('Hãy mở thư mục <b>quangcao</b> trước.'); return; }
   const p = problems();
   if(p.length && !confirm('Còn lỗi:\n- '+p.join('\n- ')+'\n\nVẫn đăng?')) return;
@@ -411,8 +444,104 @@ $('publish').onclick = async () => {
     const r = await fetch('/publish', {method:'POST', headers:{'X-Token':TOKEN}});
     const j = await r.json();
     toast((j.ok ? '✓ Đã đăng.' : '✗ Lỗi.') + '<pre>'+esc(j.output||'')+'</pre>', j.ok ? 'ok' : 'err', 7000);
-  }catch(e){ toast('Không gọi được máy chủ cục bộ — chạy lại ads-manager.bat.', 'err', 6000); }
+  }catch(e){ toast('Không gọi được máy chủ cục bộ - chạy lại ads-manager.bat.', 'err', 6000); }
 };
+
+// ---- Bản chạy trên web (GitHub Pages): đọc / ghi repo bằng GitHub API, token nằm trong trình duyệt ----
+const TOKEN_KEY = 'qc_gh_token';
+async function ghFetch(path, opts){
+  const r = await fetch('https://api.github.com/repos/'+gh.owner+'/'+gh.repo+path, {...opts, headers:{
+    'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'}});
+  if(r.ok) return r.status === 204 ? null : r.json();
+  let msg = ''; try{ msg = (await r.json()).message || ''; }catch(e){}
+  const e = new Error(r.status === 401 ? 'Token sai hoặc đã hết hạn.'
+    : (r.status === 403 || r.status === 404) ? 'Token không có quyền với repo '+gh.owner+'/'+gh.repo+' ('+(msg||r.status)+'). Cần quyền Contents: Read and write.'
+    : 'GitHub báo lỗi '+r.status+(msg ? ': '+msg : ''));
+  e.status = r.status; throw e;
+}
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')), c => c.charCodeAt(0)));
+async function fileB64(f){
+  const u = new Uint8Array(await f.arrayBuffer()); let s = '';
+  for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000));
+  return btoa(s);
+}
+async function loadGH(){
+  let text = '';
+  try{ const j = await ghFetch('/contents/ads.json?ref='+gh.branch); adsSha = j.sha; text = b64dec(j.content); }
+  catch(e){ if(e.status !== 404) throw e; adsSha = null; }
+  try{ data = text.trim() ? JSON.parse(text) : {}; }catch(e){ setStatus('<span style="color:var(--bad)">ads.json trên GitHub không phải JSON hợp lệ.</span>'); return; }
+  loadDefault(true); pending.clear();
+  setStatus('Đang sửa repo <b>'+esc(gh.owner+'/'+gh.repo)+'</b> trên GitHub. Sửa xong bấm “Đăng lên web”.');
+  $('add').disabled = false; setDirty(false);
+  sel = data.ads.length ? 0 : -1; renderAll();
+}
+function showLogin(err){
+  $('loginErr').textContent = err || '';
+  if(!$('login').open) $('login').showModal();
+  $('tokenIn').focus();
+}
+async function connectGH(tok, remember){
+  gh.token = tok;
+  const info = await ghFetch('');
+  gh.branch = info.default_branch || 'main';
+  if(remember != null){ (remember ? localStorage : sessionStorage).setItem(TOKEN_KEY, tok); }
+  await loadGH();
+  $('publish').hidden = false; $('logout').hidden = false;
+}
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const tok = $('tokenIn').value.trim(); if(!tok) return;
+  $('loginBtn').disabled = true; $('loginErr').textContent = 'Đang kiểm tra…';
+  try{ await connectGH(tok, $('remember').checked); $('tokenIn').value = ''; $('login').close(); toast('Đã kết nối GitHub.', 'ok'); }
+  catch(err){ $('loginErr').textContent = err.message; }
+  finally{ $('loginBtn').disabled = false; }
+};
+$('login').addEventListener('cancel', e => e.preventDefault());   // không đóng khi chưa kết nối
+$('logout').onclick = () => {
+  if(dirty && !confirm('Còn thay đổi chưa đăng. Vẫn đăng xuất?')) return;
+  localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); dirty = false; location.reload();
+};
+async function publishGH(){
+  const p = problems();
+  if(p.length && !confirm('Còn lỗi:\n- '+p.join('\n- ')+'\n\nVẫn đăng?')) return;
+  if(!confirm('Đăng quảng cáo lên web? Mọi máy cài player sẽ nhận quảng cáo này.')) return;
+  $('publish').disabled = true; toast('Đang đăng…', '', 60000);
+  try{
+    const head = (await ghFetch('/git/ref/heads/'+gh.branch)).object.sha;
+    const base = (await ghFetch('/git/commits/'+head)).tree.sha;
+    let cur = null; try{ cur = await ghFetch('/contents/ads.json?ref='+head); }catch(e){ if(e.status !== 404) throw e; }
+    if(cur && cur.sha !== adsSha && !confirm('ads.json trên GitHub vừa được sửa từ nơi khác sau khi anh mở trang. Đăng bản này sẽ ghi đè. Tiếp tục?')){ toast('Đã huỷ đăng.'); return; }
+    const used = new Set(data.ads.map(a => a.image));
+    const tree = [];
+    for(const [name, f] of pending){
+      if(!used.has(name)) continue;
+      const b = await ghFetch('/git/blobs', {method:'POST', body:JSON.stringify({content: await fileB64(f), encoding:'base64'})});
+      tree.push({path:name, mode:'100644', type:'blob', sha:b.sha});
+    }
+    tree.push({path:'ads.json', mode:'100644', type:'blob', content:serialize()});
+    const t = await ghFetch('/git/trees', {method:'POST', body:JSON.stringify({base_tree:base, tree})});
+    if(t.sha === base){ setDirty(false); toast('Không có thay đổi mới để đăng.', 'ok'); return; }
+    const d = new Date(), z = n => String(n).padStart(2,'0');
+    const msg = 'Cap nhat quang cao '+d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes());
+    const c = await ghFetch('/git/commits', {method:'POST', body:JSON.stringify({message:msg, tree:t.sha, parents:[head]})});
+    await ghFetch('/git/refs/heads/'+gh.branch, {method:'PATCH', body:JSON.stringify({sha:c.sha})});
+    adsSha = (t.tree.find(x => x.path === 'ads.json') || {}).sha || null;
+    pending.clear(); setDirty(false);
+    setStatus('Đã đăng. GitHub Pages cập nhật trong khoảng 1 phút, sau đó mọi máy nhận quảng cáo mới.');
+    toast('✓ Đã đăng (commit '+c.sha.slice(0,7)+').', 'ok', 6000);
+  }catch(e){
+    toast('✗ Không đăng được.<pre>'+esc(e.message)+'</pre>', 'err', 8000);
+    if(e.status === 401) showLogin(e.message);
+  }finally{ $('publish').disabled = false; }
+}
+if(GH){
+  $('open').hidden = true; $('save').hidden = true; $('dirtyTag').textContent = 'Chưa đăng';
+  $('repoName').textContent = gh.owner+'/'+gh.repo; $('repoShort').textContent = gh.repo;
+  setStatus('Đang chờ kết nối GitHub…');
+  const tok = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+  if(tok) connectGH(tok, null).catch(e => { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); showLogin(e.message); });
+  else showLogin();
+}
 window.addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
 renderList();
 </script>
