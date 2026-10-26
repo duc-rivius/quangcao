@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản lý quảng cáo — Siêu Nét Player</title>
+<style>
+:root{
+  --bg:#f3f1ed;--card:#fff;--ink:#1b1a17;--mut:#6f6a60;--line:#e4dfd6;--soft:#f8f6f2;
+  --acc:#ec7f1f;--acc2:#ff9d45;--acc-ink:#fff;--accbg:#fff1e3;
+  --bad:#c53a2b;--badbg:#fdeceb;--ok:#2a7d4f;--okbg:#e7f5ed;--warnbg:#f3f0ea;
+  --shadow:0 1px 2px rgba(30,20,10,.06),0 6px 20px rgba(30,20,10,.06);--r:12px
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#12110f;--card:#1c1a17;--ink:#f1eee8;--mut:#a39d91;--line:#322e28;--soft:#171512;
+  --accbg:#35261a;--bad:#ff7b6b;--badbg:#3a1f1c;--ok:#6fcf97;--okbg:#1a2e22;--warnbg:#25221e;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;cursor:pointer;transition:.15s}
+button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+button.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;color:var(--acc-ink);font-weight:600;box-shadow:0 2px 8px rgba(236,127,31,.35)}
+button.primary:hover:not(:disabled){color:#fff;filter:brightness(1.06)}
+button.ghost{border-color:transparent;background:transparent}
+button.danger{color:var(--bad)}button.danger:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+button:disabled{opacity:.45;cursor:default}
+[hidden]{display:none!important}
+
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:12px 20px;background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(236,127,31,.4)}
+.brand h1{font-size:16px;margin:0;line-height:1.15}.brand small{color:var(--mut);font-size:12px}
+.dirty{display:inline-flex;align-items:center;gap:6px;color:var(--acc);font-weight:600;font-size:12px}
+.dirty::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--acc)}
+
+main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px;max-width:1280px;margin:0 auto;align-items:start}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.side{padding:14px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto}
+@media (max-width:900px){.side{position:static;max-height:none}}
+.sidehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sidehead h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0}
+.hint{color:var(--mut);font-size:12.5px;margin:0 0 12px}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--soft);transition:.15s}
+.item:hover{border-color:var(--acc)}
+.item.sel{border-color:var(--acc);background:var(--accbg);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 25%,transparent)}
+.item.off .thumb,.item.off .meta{opacity:.5}
+.thumb{width:76px;aspect-ratio:16/9;flex:none;border-radius:6px;background:#2b2f36 center/cover no-repeat;display:grid;place-items:center;color:#fff;font-size:10px;text-align:center;overflow:hidden}
+.meta{min-width:0;flex:1}
+.meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta small{display:block;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;margin-top:3px}
+.b-on{background:var(--okbg);color:var(--ok)}.b-off{background:var(--warnbg);color:var(--mut)}.b-bad{background:var(--badbg);color:var(--bad)}
+.empty{text-align:center;color:var(--mut);padding:26px 8px;border:1.5px dashed var(--line);border-radius:10px}
+details.src{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+details.src summary{cursor:pointer;font-weight:600;color:var(--mut)}
+
+.work{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{padding:16px 18px}
+.card h3{margin:0 0 2px;font-size:15px}.card .sub{color:var(--mut);font-size:12.5px;margin:0 0 12px}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:13px}
+label span{font-weight:400;color:var(--mut);font-size:12px}
+input,textarea{width:100%;font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--soft);color:var(--ink);transition:.15s}
+input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent);background:var(--card)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:600px){.row{grid-template-columns:1fr}}
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;font-weight:600}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch i{width:40px;height:23px;border-radius:99px;background:var(--line);position:relative;transition:.2s;flex:none}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch input:checked+i{background:var(--ok)}.switch input:checked+i::after{left:20px}
+.drop{margin-top:6px;border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--acc);background:var(--accbg);color:var(--acc)}
+.drop input{display:none}
+.msgs{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.msgs li{padding:6px 10px;border-radius:8px;font-size:13px}
+.msgs .err{background:var(--badbg);color:var(--bad)}.msgs .warn{background:var(--warnbg);color:var(--mut)}.msgs .good{background:var(--okbg);color:var(--ok)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* xem trước màn hình chờ */
+.screen{container-type:inline-size;position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,#2b3a4a,#1a1f26 60%,#3b2a2a);border-radius:10px;overflow:hidden;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.screen .dim{position:absolute;inset:0;background:rgba(0,0,0,.22)}
+.screen .abs{position:absolute}
+.screen .ttl{font-weight:700;font-size:2.6cqw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen .tag{font-size:1.5cqw;background:rgba(255,255,255,.18);padding:.2cqw 1cqw;border-radius:99px;align-self:flex-start}
+.screen .card2{background:#2a2018;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:1.4cqw;padding:2cqw;border-radius:.6cqw}
+.screen .card2 b{font-size:4cqw}.screen .card2 span{font-size:2.2cqw;color:#e6e6e6}
+.screen .cta{align-self:center;background:#ffa34d;font-weight:700;padding:.8cqw 3cqw;font-size:2.2cqw;border-radius:.6cqw}
+.screen .body{font-size:1.8cqw;line-height:1.3;color:#ddd;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.screen .skip{background:#fff;color:#000;font-weight:700;font-size:1.9cqw;text-align:center;padding:.7cqw 0;border-radius:2px}
+.screen .stage{text-align:center;font-weight:700;font-size:2.4cqw}
+.screen .bar{height:.8cqw;background:rgba(255,255,255,.7);border-radius:99px;overflow:hidden}.screen .bar i{display:block;height:100%;width:35%;background:#ffa34d}
+.screen .hintx{text-align:center;font-size:1.8cqw;color:#ccc}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#1b1a17;color:#fff;padding:11px 18px;border-radius:12px;box-shadow:var(--shadow);max-width:min(560px,92vw);transition:.25s;z-index:20}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.err{background:var(--bad);color:#fff}#toast.ok{background:var(--ok);color:#fff}
+#toast pre{white-space:pre-wrap;margin:6px 0 0;font:12px/1.4 Consolas,monospace;max-height:160px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">QC</div><div><h1>Quản lý quảng cáo</h1><small>Siêu Nét Player</small></div></div>
+  <span class="dirty" id="dirtyTag" hidden>Chưa lưu</span>
+  <button id="open" class="ghost">Mở thư mục…</button>
+  <button id="export" class="ghost" disabled>Tải ads.json</button>
+  <button id="save" disabled>Lưu</button>
+  <button id="publish" class="primary" hidden>Đăng lên web</button>
+</header>
+<main>
+  <aside class="panel side">
+    <div class="sidehead"><h2>Quảng cáo <span id="count"></span></h2><button id="add" class="primary" disabled>+ Thêm</button></div>
+    <p class="hint" id="status">Chọn thư mục repo <b>quangcao</b> (chứa ads.json và ảnh). Cần Chrome hoặc Edge.</p>
+    <div class="list" id="list"></div>
+    <details class="src">
+      <summary>Nguồn quảng cáo (nâng cao)</summary>
+      <label>base_url <span>địa chỉ web chứa ảnh (GitHub Pages)</span></label><input id="base_url" placeholder="https://…/quangcao">
+      <label>manifest_url <span>danh sách JSON trên web</span></label><input id="manifest_url" placeholder="https://…/ads.json">
+      <label>adbutler</label><input id="adbutler" placeholder="account=…;zone=…;size=1280x720">
+      <label>kevel</label><input id="kevel" placeholder="network=…;site=…;types=…">
+    </details>
+  </aside>
+
+  <section class="work" id="editor" hidden>
+    <div class="panel card">
+      <h3>Xem trước</h3><p class="sub">Màn hình chờ khi mở phim. Sửa bên dưới là thấy đổi ngay.</p>
+      <div class="screen" id="preview"></div>
+    </div>
+
+    <div class="panel card">
+      <h3>Nội dung</h3><p class="sub">Tiêu đề và mô tả người xem thấy.</p>
+      <div class="row">
+        <div><label>Nhà quảng cáo <span>advertiser</span></label><input id="f_advertiser"></div>
+        <div><label>Mã quảng cáo <span>id, duy nhất</span></label><input id="f_id"></div>
+      </div>
+      <label>Tiêu đề <span>title, luôn điền</span></label><input id="f_title">
+      <label>Mô tả <span>body</span></label><textarea id="f_body" rows="3"></textarea>
+      <label>Chữ trên nút <span>cta, vd “Xem ngay”</span></label><input id="f_cta">
+    </div>
+
+    <div class="panel card">
+      <h3>Hình ảnh</h3><p class="sub">JPG/PNG, đẹp nhất 1280×720, tối đa 6 MB. Không có ảnh thì hiện dạng thẻ chữ.</p>
+      <label class="drop" id="drop">Kéo ảnh vào đây hoặc bấm để chọn<input type="file" id="f_file" accept="image/png,image/jpeg"></label>
+      <label>Đường dẫn ảnh <span>tên tệp hoặc https://…</span></label><input id="f_image" placeholder="ten-tep.jpg hoặc https://…">
+    </div>
+
+    <div class="panel card">
+      <h3>Liên kết &amp; theo dõi</h3><p class="sub">Trang mở khi bấm vào quảng cáo.</p>
+      <label>Liên kết khi bấm <span>click</span></label><input id="f_click" placeholder="https://…">
+      <div class="row">
+        <div><label>Pixel đếm 1 <span>impression</span></label><input id="f_impression"></div>
+        <div><label>Pixel đếm 2 <span>impression2</span></label><input id="f_impression2"></div>
+      </div>
+    </div>
+
+    <div class="panel card">
+      <h3>Lịch chạy</h3><p class="sub">Để trống ngày thì chạy mãi.</p>
+      <div class="row">
+        <div><label>Bắt đầu <span>start</span></label><input id="f_start" type="date"></div>
+        <div><label>Kết thúc <span>end</span></label><input id="f_end" type="date"></div>
+      </div>
+      <div class="row">
+        <div><label>Trọng số <span>weight, mặc định 1</span></label><input id="f_weight" type="number" min="0" max="1000" step="1"></div>
+        <div><label>Hiện ít nhất <span>min_seconds (giây)</span></label><input id="f_min_seconds" type="number" min="0" step="1"></div>
+      </div>
+      <label class="switch" style="margin-top:16px"><input type="checkbox" id="f_enabled"><i></i>Đang bật</label>
+      <ul class="msgs" id="msgs"></ul>
+    </div>
+
+    <div class="actions"><button id="dup">Nhân đôi</button><button id="del" class="danger">Xoá quảng cáo</button></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ['id','advertiser','image','title','body','cta','click','impression','impression2','start','end','weight','min_seconds'];
+const TOKEN = new URLSearchParams(location.search).get('t');
+const API = !!TOKEN && location.hostname === '127.0.0.1';   // chạy trong app (qua ads-server.ps1)
+let dir = null, data = {manifest_url:'',adbutler:'',kevel:'',ads:[]}, sel = -1, dirty = false;
+const imgUrls = new Map();
+
+const safeUrl = u => /^https?:\/\/[^\s"'<>\\`]+$/i.test(u) && u.length <= 2048;
+const setDirty = v => { dirty = v; $('save').disabled = !(dir || API) || !v; $('export').disabled = false; $('dirtyTag').hidden = !v; };
+function setStatus(t){ $('status').innerHTML = t; }
+let toastTimer;
+function toast(html, kind, ms){
+  const t = $('toast'); t.className = 'show ' + (kind || ''); t.innerHTML = html;
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), ms || 3200);
+}
+const esc = s => String(s).replace(/[<&>]/g, c => ({'<':'&lt;','&':'&amp;','>':'&gt;'}[c]));
+
+async function loadServer(){
+  const r = await fetch('/api/ads?t='+TOKEN);
+  const text = r.ok ? await r.text() : '';
+  try{ data = text.trim() ? JSON.parse(text) : {}; }catch(e){ setStatus('<span style="color:var(--bad)">ads.json không phải JSON hợp lệ.</span>'); return; }
+  loadDefault(true);
+  setStatus('Đang sửa repo <b>quangcao</b>.');
+  $('add').disabled = false; setDirty(false);
+  sel = data.ads.length ? 0 : -1; renderAll();
+}
+async function openDir(){
+  if(!window.showDirectoryPicker){ setStatus('Trình duyệt không hỗ trợ mở thư mục — dùng Chrome/Edge. Vẫn có thể soạn rồi bấm “Tải ads.json”.'); loadDefault(); return; }
+  try{ dir = await showDirectoryPicker({mode:'readwrite'}); }catch(e){ return; }
+  let text = '';
+  try{ text = await (await (await dir.getFileHandle('ads.json')).getFile()).text(); }catch(e){}
+  try{ data = text ? JSON.parse(text) : {}; }catch(e){ setStatus('<span style="color:var(--bad)">ads.json không phải JSON hợp lệ — mở bằng Notepad để sửa.</span>'); return; }
+  loadDefault(true);
+  setStatus('Đang sửa: <b>'+esc(dir.name)+'</b>');
+  $('add').disabled = false; setDirty(false);
+  sel = data.ads.length ? 0 : -1; renderAll();
+}
+function loadDefault(keep){
+  if(!keep) data = {};
+  if(!Array.isArray(data.ads)) data.ads = [];
+  for(const k of ['base_url','manifest_url','adbutler','kevel']){ if(typeof data[k] !== 'string') data[k] = ''; $(k).value = data[k]; }
+  const b = data.base_url.replace(/\/+$/,'') + '/';
+  if(data.base_url) for(const a of data.ads) if(typeof a.image === 'string' && a.image.startsWith(b)) a.image = a.image.slice(b.length);
+  $('add').disabled = false;
+  if(!keep){ sel = data.ads.length ? 0 : -1; renderAll(); }
+}
+
+function adWarnings(a, i){
+  const m = [];
+  const E = t => m.push(['err', t]), W = t => m.push(['warn', t]);
+  if(!a.id) E('Thiếu id.');
+  else if(data.ads.some((b,j)=>j!==i && b.id===a.id)) E('id trùng với quảng cáo khác.');
+  if(!a.image && !a.title) E('Cần ảnh hoặc title, nếu không player bỏ qua quảng cáo này.');
+  if(a.image && !/^https?:/i.test(a.image) && a.image.includes('..')) E('Đường dẫn ảnh không được chứa “..”.');
+  if(a.image && /^https?:/i.test(a.image) && !safeUrl(a.image)) E('Địa chỉ ảnh không hợp lệ.');
+  if(a.image && !a.title) W('Nên điền title phòng khi máy không hiện được ảnh.');
+  if(a.click && !safeUrl(a.click)) E('click phải là https://… (không khoảng trắng).');
+  for(const k of ['impression','impression2']) if(a[k] && !safeUrl(a[k])) E(k+' phải là https://…');
+  if(a.start && a.end && a.start > a.end) E('start sau end.');
+  if(a.end && a.end < new Date().toISOString().slice(0,10)) W('Quảng cáo đã hết hạn.');
+  if(!a.image && !a.cta && a.title) W('Quảng cáo chữ thường có body và cta.');
+  return m;
+}
+const mk = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
+
+function renderList(){
+  const L = $('list'); L.innerHTML = '';
+  $('count').textContent = data.ads.length ? '('+data.ads.length+')' : '';
+  if(!data.ads.length){ L.appendChild(mk('div','empty','Chưa có quảng cáo. Bấm “+ Thêm” để tạo.')); return; }
+  const today = new Date().toISOString().slice(0,10);
+  data.ads.forEach((a,i)=>{
+    const d = mk('div','item'+(i===sel?' sel':'')+(a.enabled===false?' off':''));
+    const th = mk('div','thumb'); th.textContent = a.image ? '' : 'Aa';
+    imageSrc(a).then(s => { if(s){ th.style.backgroundImage = 'url("'+s+'")'; th.textContent = ''; } });
+    const meta = mk('div','meta');
+    meta.appendChild(mk('b',null,a.title || a.id || '(chưa đặt tên)'));
+    meta.appendChild(mk('small',null,[a.advertiser, (a.start||a.end)?((a.start||'…')+' → '+(a.end||'…')):''].filter(Boolean).join(' · ') || a.id || ''));
+    const bad = adWarnings(a,i).some(x=>x[0]==='err');
+    const [cls,txt] = bad ? ['b-bad','Có lỗi'] : a.enabled===false ? ['b-off','Đang tắt'] : (a.end && a.end < today) ? ['b-off','Hết hạn'] : ['b-on','Đang chạy'];
+    meta.appendChild(mk('span','badge '+cls,txt));
+    d.append(th, meta);
+    d.onclick = ()=>{ sel = i; renderAll(); };
+    L.appendChild(d);
+  });
+}
+
+async function imageSrc(a){
+  if(!a.image) return null;
+  if(/^https?:/i.test(a.image)) return a.image;
+  let src = imgUrls.get(a.image);
+  if(!src && API) return '/img/'+encodeURIComponent(a.image)+'?t='+TOKEN;
+  if(!src && dir && !a.image.includes('..')){
+    try{
+      let h = dir; const parts = a.image.split('/');
+      for(const p of parts.slice(0,-1)) h = await h.getDirectoryHandle(p);
+      const f = await (await h.getFileHandle(parts.at(-1))).getFile();
+      src = URL.createObjectURL(f); imgUrls.set(a.image, src);
+    }catch(e){}
+  }
+  return src || null;
+}
+
+async function renderPreview(a){
+  const P = $('preview'); P.innerHTML = '';
+  P.appendChild(mk('div','dim'));
+  const w = mk('div','abs'); w.style.cssText = 'left:22%;top:6%;width:56%;display:flex;flex-direction:column;gap:1.2cqw';
+  const src = await imageSrc(a);
+  w.appendChild(mk('div','tag','QUẢNG CÁO' + (a.advertiser ? ' · ' + a.advertiser : '')));
+  if(a.image && src){
+    w.appendChild(mk('div','ttl', a.title || a.advertiser || ''));
+    const im = new Image(); im.src = src; im.style.cssText = 'width:100%;height:auto;display:block;border-radius:.6cqw;background:#000'; w.appendChild(im);
+    const row = mk('div'); row.style.cssText = 'display:flex;gap:2cqw;align-items:flex-start';
+    const body = mk('div','body', a.body || ''); body.style.flex = '1'; row.appendChild(body);
+    const sk = mk('div','skip','Bỏ qua ▶'); sk.style.width = '14cqw'; row.appendChild(sk);
+    w.appendChild(row);
+  } else {
+    const card = mk('div','card2'); card.style.height = '30cqw';
+    card.appendChild(mk('b',null,a.title || '(chưa có tiêu đề)'));
+    if(a.body) card.appendChild(mk('span',null,a.body));
+    if(a.cta) card.appendChild(mk('div','cta',a.cta));
+    if(a.image && !src) card.appendChild(mk('span',null,'(không tìm thấy ảnh — đang hiện dạng chữ)'));
+    w.appendChild(card);
+    const row = mk('div'); row.style.cssText = 'display:flex;justify-content:flex-end';
+    const sk = mk('div','skip','Bỏ qua ▶'); sk.style.width = '14cqw'; row.appendChild(sk); w.appendChild(row);
+  }
+  w.appendChild(mk('div','stage','Đang chuẩn bị phim'));
+  const bar = mk('div','bar'); bar.appendChild(mk('i')); w.appendChild(bar);
+  w.appendChild(mk('div','hintx','Phim sẽ tự phát · Enter: xem ngay'));
+  P.appendChild(w);
+}
+function renderEditor(){
+  const a = data.ads[sel];
+  $('editor').hidden = !a;
+  if(!a) return;
+  for(const k of FIELDS) $('f_'+k).value = a[k] ?? '';
+  $('f_enabled').checked = a.enabled !== false;
+  refreshMsgs();
+}
+function refreshMsgs(){
+  const a = data.ads[sel]; if(!a) return;
+  const m = adWarnings(a, sel), ul = $('msgs'); ul.innerHTML = '';
+  if(!m.length) ul.appendChild(mk('li','good','✓ Hợp lệ'));
+  for(const [c,t] of m) ul.appendChild(mk('li',c,(c==='err'?'✗ ':'• ')+t));
+  renderPreview(a);
+}
+function renderAll(){ renderList(); renderEditor(); }
+
+for(const k of FIELDS){
+  $('f_'+k).addEventListener('input', ()=>{
+    const a = data.ads[sel]; if(!a) return;
+    let v = $('f_'+k).value.trim();
+    if(k==='weight'||k==='min_seconds'){ if(v==='') delete a[k]; else a[k] = Number(v); }
+    else if(v==='') delete a[k]; else a[k] = v;
+    setDirty(true); renderList(); refreshMsgs();
+  });
+}
+$('f_enabled').onchange = e => { const a = data.ads[sel]; if(!a) return; if(e.target.checked) delete a.enabled; else a.enabled = false; setDirty(true); renderList(); };
+for(const k of ['base_url','manifest_url','adbutler','kevel']) $(k).oninput = e => { data[k] = e.target.value.trim(); setDirty(true); };
+
+async function uploadFile(f){
+  const a = data.ads[sel]; if(!f || !a) return;
+  if(!/^image\/(png|jpeg)$/.test(f.type)){ toast('Chỉ nhận ảnh JPG hoặc PNG.', 'err'); return; }
+  if(f.size > 6*1024*1024){ toast('Ảnh quá 6 MB — player sẽ không tải.', 'err'); return; }
+  // tên mới mỗi lần tải lên: player giữ ảnh cũ 7 ngày theo địa chỉ, đổi tên thì mọi máy tải ảnh mới ngay
+  const m = f.name.match(/^(.*?)(\.[A-Za-z]{3,4})$/) || [null, f.name, '.jpg'];
+  const base = m[1].replace(/-v[0-9a-z]{6,}$/,'').replace(/[^\w\-]+/g,'_').slice(0,60) || 'anh';
+  const name = base + '-v' + Date.now().toString(36) + m[2].toLowerCase();
+  if(API){
+    const r = await fetch('/api/image?t='+TOKEN+'&name='+encodeURIComponent(name),{method:'PUT',body:f});
+    if(!r.ok){ toast('Không lưu được ảnh.', 'err'); return; }
+  } else if(dir){
+    const w = await (await dir.getFileHandle(name,{create:true})).createWritable();
+    await w.write(f); await w.close();
+  } else { toast('Chưa mở thư mục: hãy tự chép ảnh vào repo, cùng tên '+esc(name), 'err', 5000); }
+  a.image = name; imgUrls.set(name, URL.createObjectURL(f));
+  $('f_image').value = name; setDirty(true); renderList(); refreshMsgs();
+}
+$('f_file').onchange = e => uploadFile(e.target.files[0]);
+const drop = $('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => uploadFile(e.dataTransfer.files[0]));
+
+$('add').onclick = () => {
+  let n = data.ads.length+1, id; do { id = 'qc-'+(n++); } while(data.ads.some(a=>a.id===id));
+  data.ads.push({id, title:''}); sel = data.ads.length-1; setDirty(true); renderAll();
+};
+$('dup').onclick = () => {
+  const a = data.ads[sel]; if(!a) return;
+  let id = a.id+'-copy', n = 2; while(data.ads.some(b=>b.id===id)) id = a.id+'-copy'+(n++);
+  data.ads.splice(sel+1,0,{...a,id}); sel++; setDirty(true); renderAll();
+};
+$('del').onclick = () => {
+  if(sel<0 || !confirm('Xoá quảng cáo “'+(data.ads[sel].title||data.ads[sel].id)+'”? (ảnh trong thư mục giữ nguyên)')) return;
+  data.ads.splice(sel,1); sel = Math.min(sel, data.ads.length-1); setDirty(true); renderAll();
+};
+
+function serialize(){
+  const b = data.base_url.replace(/\/+$/,'');
+  const out = {...data, ads: data.ads.map(a => (b && a.image && !/^https?:/i.test(a.image)) ? {...a, image: b+'/'+a.image} : a)};
+  return JSON.stringify(out, null, 2)+'\n';
+}
+function problems(){ return data.ads.flatMap((a,i)=>adWarnings(a,i).filter(x=>x[0]==='err').map(x=>(a.id||'#'+(i+1))+': '+x[1])); }
+
+async function doSave(skipAsk){
+  const p = problems();
+  if(!skipAsk && p.length && !confirm('Còn lỗi:\n- '+p.join('\n- ')+'\n\nVẫn lưu?')) return false;
+  if(API){
+    const r = await fetch('/api/ads?t='+TOKEN,{method:'PUT',body:serialize()});
+    if(!r.ok){ toast('Không lưu được ads.json.', 'err'); return false; }
+  } else {
+    const w = await (await dir.getFileHandle('ads.json',{create:true})).createWritable();
+    await w.write(serialize()); await w.close();
+  }
+  setDirty(false); toast('Đã lưu ads.json — '+data.ads.length+' quảng cáo.', 'ok');
+  setStatus('Đã lưu. Bấm “Đăng lên web” để mọi máy nhận.');
+  return true;
+}
+$('save').onclick = () => doSave(false);
+$('export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([serialize()],{type:'application/json'})); a.download = 'ads.json'; a.click();
+};
+$('open').onclick = openDir;
+// ---- Đăng lên web: chỉ hoạt động trong app (tools\ads-server.ps1) ----
+if(API){ $('publish').hidden = false; $('open').hidden = true; loadServer(); }
+$('publish').onclick = async () => {
+  if(!(dir || API)){ setStatus('Hãy mở thư mục <b>quangcao</b> trước.'); return; }
+  const p = problems();
+  if(p.length && !confirm('Còn lỗi:\n- '+p.join('\n- ')+'\n\nVẫn đăng?')) return;
+  if(!confirm('Đăng quảng cáo lên web? Mọi máy cài player sẽ nhận quảng cáo này.')) return;
+  if(dirty && !(await doSave(true))) return;
+  toast('Đang đăng…', '', 60000);
+  try{
+    const r = await fetch('/publish', {method:'POST', headers:{'X-Token':TOKEN}});
+    const j = await r.json();
+    toast((j.ok ? '✓ Đã đăng.' : '✗ Lỗi.') + '<pre>'+esc(j.output||'')+'</pre>', j.ok ? 'ok' : 'err', 7000);
+  }catch(e){ toast('Không gọi được máy chủ cục bộ — chạy lại ads-manager.bat.', 'err', 6000); }
+};
+window.addEventListener('beforeunload', e => { if(dirty){ e.preventDefault(); e.returnValue = ''; } });
+renderList();
+</script>
+</body>
+</html>
