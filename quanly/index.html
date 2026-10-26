@@ -214,7 +214,8 @@ dialog a{color:var(--acc)}
       <li>Permissions, mục Repository: <b>Contents: Read and write</b>. Bấm Generate rồi chép token.</li>
     </ol>
     <label>Token</label><input id="tokenIn" type="password" autocomplete="off" placeholder="github_pat_…">
-    <fieldset class="newpw">
+    <p id="newpwShow" class="sub" hidden>Đã có tên đăng nhập và mật khẩu. Token cũ hết hạn và anh vừa dán token mới? <a href="#" id="newpwOpen">Gắn token mới vào mật khẩu</a>.</p>
+    <fieldset class="newpw" id="newpwBox">
       <legend>Đặt tên đăng nhập và mật khẩu (tuỳ chọn)</legend>
       <p class="sub">Lần sau chỉ cần gõ tên và mật khẩu, khỏi dán token. Điền lại ở đây khi đổi token mới.</p>
       <label>Tên đăng nhập</label><input id="newUser" autocomplete="username">
@@ -526,8 +527,17 @@ async function openToken(a, user, pass){
   }catch(e){ throw new Error('Sai tên đăng nhập hoặc mật khẩu.'); }
 }
 async function loadAuth(){
-  try{ const r = await fetch('auth.json?'+Date.now(), {cache:'no-store'}); auth = r.ok ? await r.json() : null; }catch(e){ auth = null; }
-  if(!(auth && auth.v === 1 && auth.ct && auth.iv && auth.salt && auth.iter)) auth = null;
+  // Đọc thẳng từ GitHub API trước: GitHub Pages cần khoảng 1 phút mới phục vụ auth.json vừa lưu, trong lúc đó
+  // trang tưởng chưa có mật khẩu và lại bắt đặt. Hết lượt gọi API (60 lần/giờ) thì mới đọc bản trên Pages.
+  const ok = a => a && a.v === 1 && a.ct && a.iv && a.salt && a.iter ? a : null;
+  auth = null;
+  try{
+    const r = await fetch('https://api.github.com/repos/'+gh.owner+'/'+gh.repo+'/contents/'+AUTH_FILE+'?ref='+gh.branch+'&_='+Date.now(),
+      {cache:'no-store', headers:{Accept:'application/vnd.github.raw'}});
+    if(r.ok){ auth = ok(await r.json()); return; }
+    if(r.status === 404) return;
+  }catch(e){}
+  try{ const r = await fetch('auth.json?'+Date.now(), {cache:'no-store'}); auth = r.ok ? ok(await r.json()) : null; }catch(e){ auth = null; }
 }
 async function saveAuth(user, pass){
   const a = await sealToken(gh.token, user, pass);
@@ -551,10 +561,13 @@ function showLogin(err, mode){
   const pw = mode ? mode === 'pw' : !!auth;
   showForm(pw ? 'pwForm' : 'loginForm');
   $('toPw').hidden = !auth;
+  // Đã có mật khẩu thì giấu khung đặt mật khẩu, chỉ mở khi cần gắn token mới vào mật khẩu.
+  $('newpwBox').hidden = !!auth; $('newpwShow').hidden = !auth;
   $(pw ? 'pwErr' : 'loginErr').textContent = err || '';
   $(pw ? 'pwUser' : 'tokenIn').focus();
 }
 $('toToken').onclick = () => showLogin('', 'token');
+$('newpwOpen').onclick = e => { e.preventDefault(); $('newpwBox').hidden = false; $('newpwShow').hidden = true; $('newUser').focus(); };
 $('toPw').onclick = () => showLogin('', 'pw');
 $('pwForm').onsubmit = async e => {
   e.preventDefault();
