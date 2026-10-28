@@ -133,6 +133,8 @@ dialog a{color:var(--acc)}
       <label>manifest_url <span>danh sách JSON trên web</span></label><input id="manifest_url" placeholder="https://…/ads.json">
       <label>adbutler</label><input id="adbutler" placeholder="account=…;zone=…;size=1280x720">
       <label>kevel</label><input id="kevel" placeholder="network=…;site=…;types=…">
+      <label>stats_url <span>máy chủ số liệu trên VPS (baocao/)</span></label><input id="stats_url" placeholder="https://stats.…/e">
+      <p class="hint" id="stats_link"></p>
     </details>
   </aside>
 
@@ -272,7 +274,8 @@ async function openDir(){
 function loadDefault(keep){
   if(!keep) data = {};
   if(!Array.isArray(data.ads)) data.ads = [];
-  for(const k of ['base_url','manifest_url','adbutler','kevel']){ if(typeof data[k] !== 'string') data[k] = ''; $(k).value = data[k]; }
+  for(const k of ['base_url','manifest_url','adbutler','kevel','stats_url']){ if(typeof data[k] !== 'string') data[k] = ''; $(k).value = data[k]; }
+  statsLink();
   const b = data.base_url.replace(/\/+$/,'') + '/';
   if(data.base_url) for(const a of data.ads) if(typeof a.image === 'string' && a.image.startsWith(b)) a.image = a.image.slice(b.length);
   $('add').disabled = false;
@@ -390,7 +393,13 @@ for(const k of FIELDS){
   });
 }
 $('f_enabled').onchange = e => { const a = data.ads[sel]; if(!a) return; if(e.target.checked) delete a.enabled; else a.enabled = false; setDirty(true); renderList(); };
-for(const k of ['base_url','manifest_url','adbutler','kevel']) $(k).oninput = e => { data[k] = e.target.value.trim(); setDirty(true); };
+for(const k of ['base_url','manifest_url','adbutler','kevel','stats_url']) $(k).oninput = e => { data[k] = e.target.value.trim(); setDirty(true); if(k==='stats_url') statsLink(); };
+// trang báo cáo nằm cùng máy chủ với stats_url: https://…/e → https://…/baocao
+function statsLink(){
+  const u = (data.stats_url||'').trim();
+  $('stats_link').innerHTML = /^https?:\/\/[^\s"'<>]+\/e$/i.test(u)
+    ? '<a href="'+esc(u.replace(/\/e$/i,'/baocao'))+'" target="_blank" rel="noopener">Mở trang báo cáo ↗</a>' : '';
+}
 
 async function uploadFile(f){
   const a = data.ads[sel]; if(!f || !a) return;

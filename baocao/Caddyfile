@@ -1,0 +1,10 @@
+# Thay stats.ten-mien-cua-ban bằng tên miền (hoặc tên miền phụ) trỏ về IP của VPS.
+# Caddy tự xin chứng chỉ HTTPS miễn phí (Let's Encrypt).
+stats.ten-mien-cua-ban {
+	encode gzip
+	reverse_proxy 127.0.0.1:8787
+	# không ghi nhật ký truy cập (có địa chỉ IP người xem)
+	log {
+		output discard
+	}
+}

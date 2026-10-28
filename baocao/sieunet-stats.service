@@ -1,0 +1,23 @@
+[Unit]
+Description=Siêu Nét Player - máy chủ số liệu quảng cáo
+After=network.target
+
+[Service]
+Type=simple
+User=sieunet-stats
+Group=sieunet-stats
+WorkingDirectory=/opt/sieunet-stats
+# mật khẩu quản trị nằm trong tệp riêng (chmod 600), dạng: STATS_ADMIN_KEY=...
+EnvironmentFile=/etc/sieunet-stats.env
+ExecStart=/usr/bin/python3 /opt/sieunet-stats/server.py --host 127.0.0.1 --port 8787 --db /var/lib/sieunet-stats/stats.db
+Restart=always
+RestartSec=3
+StateDirectory=sieunet-stats
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/sieunet-stats
+
+[Install]
+WantedBy=multi-user.target
