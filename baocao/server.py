@@ -290,8 +290,8 @@ def main():
     ap.add_argument("--db", default=os.path.join(HERE, "stats.db"))
     a = ap.parse_args()
     key = os.environ.get("STATS_ADMIN_KEY", "")
-    if len(key) < 16:
-        sys.exit("Đặt biến môi trường STATS_ADMIN_KEY (mật khẩu quản trị, ít nhất 16 ký tự)")
+    if len(key) < 12:
+        sys.exit("Đặt biến môi trường STATS_ADMIN_KEY (mật khẩu quản trị, ít nhất 12 ký tự)")
     Handler.store = Store(a.db)
     Handler.admin_key = key
     srv = ThreadingHTTPServer((a.host, a.port), Handler)
