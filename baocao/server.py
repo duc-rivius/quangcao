@@ -262,6 +262,23 @@ class Handler(BaseHTTPRequestHandler):
                              {"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' "
                               "https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; "
                               "connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'"})
+        if u.path == "/quangcao":
+            return self.send(301, b"", "text/plain", {"Location": "/quangcao/"})
+        if u.path in ("/quangcao/", "/quangcao/index.html", "/quangcao/auth.json"):
+            # trang quản lý quảng cáo (bản sao của quanly/ trong repo): sửa repo quangcao qua GitHub API
+            name = "auth.json" if u.path.endswith("auth.json") else "index.html"
+            try:
+                with open(os.path.join(HERE, "quanly", name), "rb") as f:
+                    page = f.read()
+            except OSError:
+                return self.send_json(404, {"error": "chưa chép thư mục quanly/"})
+            if name == "auth.json":
+                return self.send(200, page)
+            return self.send(200, page, "text/html; charset=utf-8",
+                             {"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                              "style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.github.com "
+                              "https://raw.githubusercontent.com; img-src 'self' data: blob: https:; "
+                              "frame-ancestors 'none'"})
         if u.path == "/health":
             return self.send_json(200, {"ok": True})
         if u.path != "/api/report":

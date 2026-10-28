@@ -234,8 +234,12 @@ const $ = id => document.getElementById(id);
 const FIELDS = ['id','advertiser','image','title','body','cta','click','impression','impression2','start','end','weight','min_seconds'];
 const TOKEN = new URLSearchParams(location.search).get('t');
 const API = !!TOKEN && location.hostname === '127.0.0.1';   // chạy trong app (qua ads-server.ps1)
-const GH = !API && /\.github\.io$/i.test(location.hostname); // chạy trên GitHub Pages: sửa repo qua GitHub API
-const gh = GH ? {owner: location.hostname.split('.')[0], repo: location.pathname.split('/')[1] || '', branch: 'main', token: ''} : null;
+// chạy trên web (GitHub Pages, hoặc máy chủ báo cáo trên VPS: https://…/quangcao/): sửa repo qua GitHub API
+const PAGES = /\.github\.io$/i.test(location.hostname);
+const GH = !API && (PAGES || location.protocol === 'https:');
+const gh = !GH ? null : PAGES
+  ? {owner: location.hostname.split('.')[0], repo: location.pathname.split('/')[1] || '', branch: 'main', token: ''}
+  : {owner: 'duc-rivius', repo: 'quangcao', branch: 'main', token: ''};
 const pending = new Map();   // ảnh mới tải lên, chưa đăng (bản web)
 let adsSha = null;           // sha của ads.json lúc tải, để biết có ai sửa chen giữa
 let dir = null, data = {manifest_url:'',adbutler:'',kevel:'',ads:[]}, sel = -1, dirty = false;
